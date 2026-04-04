@@ -20,7 +20,10 @@ export function CreatePostForm() {
       body: JSON.stringify({ title, body }),
     });
     setLoading(false);
-    if (!res.ok) return toast.error("Could not create post");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return toast.error(data.error || "Could not create post");
+    }
     setTitle("");
     setBody("");
     toast.success("Post created");
