@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/prisma";
 import { getRequiredUser } from "@/lib/auth-helpers";
 import { parseHashtagsInput, parseTagsInput } from "@/lib/post-tags";
@@ -8,7 +9,7 @@ const createPostSchema = z
   .object({
     title: z.string().min(4).max(180),
     body: z.string().min(10).max(4000),
-    imageUrl: z.string().max(2048).optional(),
+    imageUrl: z.string().max(8192).optional(),
     tags: z.union([z.array(z.string()), z.string()]).optional(),
     hashtags: z.union([z.array(z.string()), z.string()]).optional(),
   })
@@ -62,6 +63,14 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message }, { status: 400 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+      return NextResponse.json(
+        {
+          error: "Database schema is out of sync on deployment. Run Prisma schema sync (db push/migrate deploy) so the imageUrl column exists.",
+        },
+        { status: 500 }
+      );
     }
     if (error instanceof Error && ["UNAUTHORIZED", "FORBIDDEN"].includes(error.message)) {
       return NextResponse.json({ error: error.message }, { status: 401 });
